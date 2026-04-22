@@ -51,7 +51,7 @@ jobs:
 
       - name: Run lint
         working-directory: ${{ inputs.working_directory }}
-        run: uv run flake8 . --exclude migrations --toml-config pyproject.toml
+        run: uv run flake8 . --toml-config pyproject.toml
 
       - name: Run secondary lint
         working-directory: ${{ inputs.working_directory }}
