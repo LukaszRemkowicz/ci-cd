@@ -1,0 +1,85 @@
+name: Python CI
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: Python version for the runner.
+        required: false
+        default: "3.13"
+        type: string
+      dependency_install_command:
+        description: Command used to install project dependencies.
+        required: false
+        default: uv sync --group dev
+        type: string
+      pre_commit_command:
+        description: Command used to run pre-commit checks.
+        required: false
+        default: uv run pre-commit run --all-files
+        type: string
+      test_command:
+        description: Command used to run the test suite.
+        required: false
+        default: uv run pytest
+        type: string
+      docker_compose_validate_command:
+        description: Command used to validate docker compose configuration.
+        required: false
+        default: docker compose config
+        type: string
+      docker_build_command:
+        description: Command used to build required Docker images.
+        required: false
+        default: docker compose build
+        type: string
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality-and-tests:
+    name: Quality and Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: ${{ inputs.dependency_install_command }}
+
+      - name: Run pre-commit
+        run: ${{ inputs.pre_commit_command }}
+
+      - name: Run tests
+        run: ${{ inputs.test_command }}
+
+  docker-build:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    needs: quality-and-tests
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate compose config
+        run: ${{ inputs.docker_compose_validate_command }}
+
+      - name: Build Docker images
+        run: ${{ inputs.docker_build_command }}
