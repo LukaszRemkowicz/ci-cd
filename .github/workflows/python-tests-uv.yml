@@ -94,7 +94,7 @@ jobs:
         run: uv run pytest
 
   tests-with-postgres:
-    name: Python Tests
+    name: Python Tests (Postgres)
     if: ${{ inputs.postgres_enabled }}
     runs-on: ubuntu-latest
     services:
