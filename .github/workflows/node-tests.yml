@@ -1,4 +1,4 @@
-name: Node CI
+name: Node Tests
 
 on:
   workflow_call:
@@ -6,7 +6,7 @@ on:
       node_version:
         description: Node.js version for the runner.
         required: false
-        default: "20"
+        default: "24"
         type: string
       working_directory:
         description: Working directory for Node commands.
@@ -23,33 +23,23 @@ on:
         required: false
         default: npm ci
         type: string
-      lint_command:
-        description: Command used to run lints.
-        required: false
-        default: npm run lint
-        type: string
-      format_check_command:
-        description: Command used to run formatting checks.
-        required: false
-        default: npm run format:check
-        type: string
-      type_check_command:
-        description: Command used to run type checks.
-        required: false
-        default: npx tsc --noEmit
-        type: string
       test_command:
         description: Command used to run tests.
         required: false
         default: npm test -- --coverage --watchAll=false
+        type: string
+      test_environment:
+        description: Optional multiline KEY=VALUE pairs exported before tests run.
+        required: false
+        default: ""
         type: string
 
 permissions:
   contents: read
 
 jobs:
-  quality-and-tests:
-    name: Frontend Quality & Tests
+  tests:
+    name: Node Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -67,17 +57,10 @@ jobs:
         working-directory: ${{ inputs.working_directory }}
         run: ${{ inputs.install_command }}
 
-      - name: Run lint
-        working-directory: ${{ inputs.working_directory }}
-        run: ${{ inputs.lint_command }}
-
-      - name: Run format check
-        working-directory: ${{ inputs.working_directory }}
-        run: ${{ inputs.format_check_command }}
-
-      - name: Run type check
-        working-directory: ${{ inputs.working_directory }}
-        run: ${{ inputs.type_check_command }}
+      - name: Export test environment
+        if: ${{ inputs.test_environment != '' }}
+        run: |
+          printf '%s\n' '${{ inputs.test_environment }}' >> "$GITHUB_ENV"
 
       - name: Run tests
         working-directory: ${{ inputs.working_directory }}

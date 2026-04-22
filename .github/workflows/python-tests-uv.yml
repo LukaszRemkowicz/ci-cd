@@ -1,4 +1,4 @@
-name: Python UV CI
+name: Python Tests UV
 
 on:
   workflow_call:
@@ -13,25 +13,10 @@ on:
         required: false
         default: .
         type: string
-      cache_dependency_glob:
-        description: Dependency file glob for uv cache invalidation.
+      test_environment:
+        description: Optional multiline KEY=VALUE pairs exported before tests run.
         required: false
-        default: uv.lock
-        type: string
-      dependency_install_command:
-        description: Command used to install dependencies.
-        required: false
-        default: uv sync --locked
-        type: string
-      pre_commit_command:
-        description: Command used to run pre-commit.
-        required: false
-        default: uv run pre-commit run --all-files
-        type: string
-      test_command:
-        description: Command used to run tests.
-        required: false
-        default: uv run pytest
+        default: ""
         type: string
       postgres_enabled:
         description: Whether to start a Postgres service container.
@@ -68,8 +53,8 @@ permissions:
   contents: read
 
 jobs:
-  quality-and-tests:
-    name: Backend Quality & Tests
+  tests:
+    name: Python Tests
     if: ${{ !inputs.postgres_enabled }}
     runs-on: ubuntu-latest
 
@@ -86,22 +71,23 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-          cache-dependency-glob: ${{ inputs.cache_dependency_glob }}
+          cache-dependency-glob: ${{ inputs.working_directory }}/uv.lock
 
       - name: Install dependencies
         working-directory: ${{ inputs.working_directory }}
-        run: ${{ inputs.dependency_install_command }}
+        run: uv sync --locked
 
-      - name: Run pre-commit
-        working-directory: ${{ inputs.working_directory }}
-        run: ${{ inputs.pre_commit_command }}
+      - name: Export test environment
+        if: ${{ inputs.test_environment != '' }}
+        run: |
+          printf '%s\n' '${{ inputs.test_environment }}' >> "$GITHUB_ENV"
 
       - name: Run tests
         working-directory: ${{ inputs.working_directory }}
-        run: ${{ inputs.test_command }}
+        run: uv run pytest
 
-  quality-and-tests-with-postgres:
-    name: Backend Quality & Tests
+  tests-with-postgres:
+    name: Python Tests
     if: ${{ inputs.postgres_enabled }}
     runs-on: ubuntu-latest
     services:
@@ -132,16 +118,17 @@ jobs:
         uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
-          cache-dependency-glob: ${{ inputs.cache_dependency_glob }}
+          cache-dependency-glob: ${{ inputs.working_directory }}/uv.lock
 
       - name: Install dependencies
         working-directory: ${{ inputs.working_directory }}
-        run: ${{ inputs.dependency_install_command }}
+        run: uv sync --locked
 
-      - name: Run pre-commit
-        working-directory: ${{ inputs.working_directory }}
-        run: ${{ inputs.pre_commit_command }}
+      - name: Export test environment
+        if: ${{ inputs.test_environment != '' }}
+        run: |
+          printf '%s\n' '${{ inputs.test_environment }}' >> "$GITHUB_ENV"
 
       - name: Run tests
         working-directory: ${{ inputs.working_directory }}
-        run: ${{ inputs.test_command }}
+        run: uv run pytest

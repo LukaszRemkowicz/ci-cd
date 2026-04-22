@@ -1,0 +1,62 @@
+name: Python Quality UV
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: Python version for the runner.
+        required: false
+        default: "3.13"
+        type: string
+      working_directory:
+        description: Working directory for Python commands.
+        required: false
+        default: .
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Python Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ inputs.working_directory }}/uv.lock
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working_directory }}
+        run: uv sync --locked
+
+      - name: Run import sort check
+        working-directory: ${{ inputs.working_directory }}
+        run: uv run isort . --settings-path pyproject.toml --profile black --check-only
+
+      - name: Run format check
+        working-directory: ${{ inputs.working_directory }}
+        run: uv run black . --config pyproject.toml --check
+
+      - name: Run lint
+        working-directory: ${{ inputs.working_directory }}
+        run: uv run flake8 . --exclude migrations --toml-config pyproject.toml
+
+      - name: Run secondary lint
+        working-directory: ${{ inputs.working_directory }}
+        run: uv run ruff check . --config pyproject.toml
+
+      - name: Run type check
+        working-directory: ${{ inputs.working_directory }}
+        run: uv run mypy .

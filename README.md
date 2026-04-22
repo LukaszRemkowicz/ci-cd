@@ -4,12 +4,14 @@ Shared reusable GitHub Actions workflows for application repositories.
 
 ## Workflows
 
-- `.github/workflows/python-ci.yml`
-  Reusable Python quality, test, and Docker build checks for simple service repos.
-- `.github/workflows/python-uv-ci.yml`
-  Reusable Python/uv quality and test workflow with optional Postgres.
-- `.github/workflows/node-ci.yml`
-  Reusable Node quality and test workflow for frontend projects.
+- `.github/workflows/python-quality-uv.yml`
+  Reusable Python quality workflow with explicit formatter, lint, and type-check commands.
+- `.github/workflows/python-tests-uv.yml`
+  Reusable Python test workflow with optional Postgres.
+- `.github/workflows/node-quality.yml`
+  Reusable Node quality workflow for frontend projects.
+- `.github/workflows/node-tests.yml`
+  Reusable Node test workflow for frontend projects.
 - `.github/workflows/codeql.yml`
   Reusable CodeQL analysis workflow with multi-language and optional config file support.
 - `.github/workflows/trivy-scan.yml`
@@ -38,62 +40,50 @@ jobs:
 The sections below describe the supported `with:` inputs for each reusable
 workflow.
 
-### `python-ci.yml`
+### `python-quality-uv.yml`
 
-Use for simple Python repos that want:
-- dependency install
-- pre-commit
-- tests
-- docker compose validation
-- docker image build
+Use for Python quality checks with explicit formatter, lint, and type-check
+commands instead of pre-commit.
 
-Inputs:
-- `python_version`
-  Python version for the runner.
-- `dependency_install_command`
-  Command used to install dependencies.
-- `pre_commit_command`
-  Command used to run pre-commit.
-- `test_command`
-  Command used to run tests.
-- `docker_compose_validate_command`
-  Command used to validate Docker Compose config.
-- `docker_build_command`
-  Command used to build required Docker images.
-
-Example:
-
-```yaml
-jobs:
-  quality-and-tests:
-    uses: LukaszRemkowicz/ci-cd/.github/workflows/python-ci.yml@main
-    with:
-      python_version: "3.13"
-      dependency_install_command: uv sync --group dev
-      pre_commit_command: uv run pre-commit run --all-files
-      test_command: uv run pytest
-      docker_compose_validate_command: docker compose config
-      docker_build_command: docker compose build app tests
-```
-
-### `python-uv-ci.yml`
-
-Use for Python projects that run through `uv` and may optionally require a
-Postgres service in CI.
+The workflow installs project dependencies and runs the shared quality commands
+through `uv run`.
 
 Inputs:
 - `python_version`
   Python version for the runner.
 - `working_directory`
   Directory where the commands should run.
-- `cache_dependency_glob`
-  Dependency lock file path/glob used by `setup-uv` caching.
-- `dependency_install_command`
-  Command used to install dependencies.
-- `pre_commit_command`
-  Command used to run pre-commit.
-- `test_command`
-  Command used to run tests.
+
+The shared workflow runs these quality commands:
+- `uv run isort . --settings-path pyproject.toml --profile black --check-only`
+- `uv run black . --config pyproject.toml --check`
+- `uv run flake8 . --exclude migrations --toml-config pyproject.toml`
+- `uv run ruff check . --config pyproject.toml`
+- `uv run mypy .`
+
+Example:
+
+```yaml
+jobs:
+  backend-quality:
+    uses: LukaszRemkowicz/ci-cd/.github/workflows/python-quality-uv.yml@main
+    with:
+      working_directory: backend
+```
+
+### `python-tests-uv.yml`
+
+Use for Python projects that run through `uv` and may optionally require a
+Postgres service in CI.
+
+The workflow installs project dependencies and then runs the configured test
+command.
+
+Inputs:
+- `python_version`
+  Python version for the runner.
+- `working_directory`
+  Directory where the commands should run.
 - `postgres_enabled`
   Set `true` when the project requires Postgres in CI.
 - `postgres_image`
@@ -116,15 +106,10 @@ Example:
 
 ```yaml
 jobs:
-  backend:
-    uses: LukaszRemkowicz/ci-cd/.github/workflows/python-uv-ci.yml@main
+  backend-tests:
+    uses: LukaszRemkowicz/ci-cd/.github/workflows/python-tests-uv.yml@main
     with:
-      python_version: "3.13"
       working_directory: backend
-      cache_dependency_glob: backend/uv.lock
-      dependency_install_command: uv sync --locked
-      pre_commit_command: uv run pre-commit run --all-files
-      test_command: uv run pytest --cov=. --cov-report=xml
       postgres_enabled: true
       postgres_db: test_db
       postgres_user: postgres
@@ -133,9 +118,9 @@ jobs:
     secrets: inherit
 ```
 
-### `node-ci.yml`
+### `node-quality.yml`
 
-Use for frontend or other Node-based application checks.
+Use for frontend or other Node-based quality checks.
 
 Inputs:
 - `node_version`
@@ -152,8 +137,40 @@ Inputs:
   Command used to run formatting checks.
 - `type_check_command`
   Command used to run type checks.
+
+Example:
+
+```yaml
+jobs:
+  frontend-quality:
+    uses: LukaszRemkowicz/ci-cd/.github/workflows/node-quality.yml@main
+    with:
+      node_version: "24"
+      working_directory: frontend
+      cache_dependency_path: frontend/package-lock.json
+      install_command: npm ci
+      lint_command: npm run lint
+      format_check_command: npm run format:check
+      type_check_command: npx tsc --noEmit
+```
+
+### `node-tests.yml`
+
+Use for frontend or other Node-based test checks.
+
+Inputs:
+- `node_version`
+  Node.js version for the runner.
+- `working_directory`
+  Directory where Node commands should run.
+- `cache_dependency_path`
+  Dependency file path used for npm cache invalidation.
+- `install_command`
+  Command used to install dependencies.
 - `test_command`
   Command used to run tests.
+- `test_environment`
+  Optional multiline `KEY=VALUE` pairs exported before the test command runs.
 
 ### `codeql.yml`
 
