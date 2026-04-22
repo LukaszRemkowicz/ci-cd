@@ -3,10 +3,10 @@ name: CodeQL
 on:
   workflow_call:
     inputs:
-      languages:
-        description: Comma-separated CodeQL languages to analyze.
+      languages_json:
+        description: JSON array of CodeQL languages to analyze.
         required: false
-        default: python
+        default: '["python"]'
         type: string
       config_file:
         description: Optional CodeQL config file path.
@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ${{ fromJSON(format('["{0}"]', replace(inputs.languages, ',', '","'))) }}
+        language: ${{ fromJSON(inputs.languages_json) }}
 
     steps:
       - name: Checkout code
@@ -55,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ${{ fromJSON(format('["{0}"]', replace(inputs.languages, ',', '","'))) }}
+        language: ${{ fromJSON(inputs.languages_json) }}
 
     steps:
       - name: Checkout code
