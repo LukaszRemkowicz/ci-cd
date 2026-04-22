@@ -13,6 +13,16 @@ on:
         required: false
         default: v
         type: string
+    outputs:
+      release_tag:
+        description: Resolved release tag.
+        value: ${{ jobs.tag-main.outputs.release_tag }}
+      tag_created:
+        description: Whether a new tag was created.
+        value: ${{ jobs.tag-main.outputs.tag_created }}
+      version_changed:
+        description: Whether the VERSION differs from the latest release tag.
+        value: ${{ jobs.tag-main.outputs.version_changed }}
 
 permissions:
   contents: write
