@@ -49,6 +49,13 @@ on:
         default: "5432"
         type: string
 
+env:
+  DB_HOST: localhost
+  DB_NAME: test_db
+  DB_USER: postgres
+  DB_PASSWORD: postgres
+  DB_PORT: 5432
+
 permissions:
   contents: read
 
