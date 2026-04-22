@@ -13,6 +13,11 @@ on:
         required: false
         default: .
         type: string
+      quality_environment:
+        description: Optional multiline KEY=VALUE pairs exported before quality checks run.
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -40,6 +45,11 @@ jobs:
       - name: Install dependencies
         working-directory: ${{ inputs.working_directory }}
         run: uv sync --locked
+
+      - name: Export quality environment
+        if: ${{ inputs.quality_environment != '' }}
+        run: |
+          printf '%s\n' '${{ inputs.quality_environment }}' >> "$GITHUB_ENV"
 
       - name: Run import sort check
         working-directory: ${{ inputs.working_directory }}
