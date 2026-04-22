@@ -1,0 +1,84 @@
+name: Node CI
+
+on:
+  workflow_call:
+    inputs:
+      node_version:
+        description: Node.js version for the runner.
+        required: false
+        default: "20"
+        type: string
+      working_directory:
+        description: Working directory for Node commands.
+        required: false
+        default: .
+        type: string
+      cache_dependency_path:
+        description: Path used for npm cache invalidation.
+        required: false
+        default: package-lock.json
+        type: string
+      install_command:
+        description: Command used to install dependencies.
+        required: false
+        default: npm ci
+        type: string
+      lint_command:
+        description: Command used to run lints.
+        required: false
+        default: npm run lint
+        type: string
+      format_check_command:
+        description: Command used to run formatting checks.
+        required: false
+        default: npm run format:check
+        type: string
+      type_check_command:
+        description: Command used to run type checks.
+        required: false
+        default: npx tsc --noEmit
+        type: string
+      test_command:
+        description: Command used to run tests.
+        required: false
+        default: npm test -- --coverage --watchAll=false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  quality-and-tests:
+    name: Frontend Quality & Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.cache_dependency_path }}
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.install_command }}
+
+      - name: Run lint
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.lint_command }}
+
+      - name: Run format check
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.format_check_command }}
+
+      - name: Run type check
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.type_check_command }}
+
+      - name: Run tests
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.test_command }}

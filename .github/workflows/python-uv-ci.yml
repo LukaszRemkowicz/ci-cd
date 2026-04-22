@@ -1,0 +1,147 @@
+name: Python UV CI
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: Python version for the runner.
+        required: false
+        default: "3.13"
+        type: string
+      working_directory:
+        description: Working directory for Python commands.
+        required: false
+        default: .
+        type: string
+      cache_dependency_glob:
+        description: Dependency file glob for uv cache invalidation.
+        required: false
+        default: uv.lock
+        type: string
+      dependency_install_command:
+        description: Command used to install dependencies.
+        required: false
+        default: uv sync --locked
+        type: string
+      pre_commit_command:
+        description: Command used to run pre-commit.
+        required: false
+        default: uv run pre-commit run --all-files
+        type: string
+      test_command:
+        description: Command used to run tests.
+        required: false
+        default: uv run pytest
+        type: string
+      postgres_enabled:
+        description: Whether to start a Postgres service container.
+        required: false
+        default: false
+        type: boolean
+      postgres_image:
+        description: Postgres image to use when enabled.
+        required: false
+        default: postgres:18
+        type: string
+      postgres_db:
+        description: Postgres database name.
+        required: false
+        default: test_db
+        type: string
+      postgres_user:
+        description: Postgres user name.
+        required: false
+        default: postgres
+        type: string
+      postgres_password:
+        description: Postgres password.
+        required: false
+        default: postgres
+        type: string
+      postgres_port:
+        description: Host port to expose Postgres on.
+        required: false
+        default: "5432"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  quality-and-tests:
+    name: Backend Quality & Tests
+    if: ${{ !inputs.postgres_enabled }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ inputs.cache_dependency_glob }}
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.dependency_install_command }}
+
+      - name: Run pre-commit
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.pre_commit_command }}
+
+      - name: Run tests
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.test_command }}
+
+  quality-and-tests-with-postgres:
+    name: Backend Quality & Tests
+    if: ${{ inputs.postgres_enabled }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: ${{ inputs.postgres_image }}
+        env:
+          POSTGRES_PASSWORD: ${{ inputs.postgres_password }}
+          POSTGRES_USER: ${{ inputs.postgres_user }}
+          POSTGRES_DB: ${{ inputs.postgres_db }}
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - ${{ inputs.postgres_port }}:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: ${{ inputs.cache_dependency_glob }}
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.dependency_install_command }}
+
+      - name: Run pre-commit
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.pre_commit_command }}
+
+      - name: Run tests
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.test_command }}

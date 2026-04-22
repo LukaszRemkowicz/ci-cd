@@ -3,10 +3,15 @@ name: CodeQL
 on:
   workflow_call:
     inputs:
-      language:
-        description: CodeQL language to analyze.
+      languages:
+        description: Comma-separated CodeQL languages to analyze.
         required: false
         default: python
+        type: string
+      config_file:
+        description: Optional CodeQL config file path.
+        required: false
+        default: ""
         type: string
 
 permissions:
@@ -15,9 +20,15 @@ permissions:
   security-events: write
 
 jobs:
-  analyze:
-    name: Analyze (${{ inputs.language }})
+  analyze-default:
+    name: Analyze
+    if: ${{ inputs.config_file == '' }}
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(format('["{0}"]', replace(inputs.languages, ',', '","'))) }}
 
     steps:
       - name: Checkout code
@@ -26,10 +37,40 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: ${{ inputs.language }}
+          languages: ${{ matrix.language }}
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}
+
+  analyze-with-config:
+    name: Analyze
+    if: ${{ inputs.config_file != '' }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ${{ fromJSON(format('["{0}"]', replace(inputs.languages, ',', '","'))) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          config-file: ${{ inputs.config_file }}
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}
