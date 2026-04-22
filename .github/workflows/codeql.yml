@@ -20,9 +20,8 @@ permissions:
   security-events: write
 
 jobs:
-  analyze-default:
+  analyze:
     name: Analyze
-    if: ${{ inputs.config_file == '' }}
     runs-on: ubuntu-latest
 
     strategy:
@@ -35,33 +34,13 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
+        if: ${{ inputs.config_file == '' }}
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
-
-      - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
-        with:
-          category: /language:${{ matrix.language }}
-
-  analyze-with-config:
-    name: Analyze
-    if: ${{ inputs.config_file != '' }}
-    runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ${{ fromJSON(inputs.languages_json) }}
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Initialize CodeQL
+      - name: Initialize CodeQL with config
+        if: ${{ inputs.config_file != '' }}
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
