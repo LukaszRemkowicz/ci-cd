@@ -18,6 +18,11 @@ on:
         required: false
         default: ""
         type: string
+      test_command:
+        description: Command used to run tests.
+        required: false
+        default: uv run pytest
+        type: string
       postgres_enabled:
         description: Whether to start a Postgres service container.
         required: false
@@ -91,7 +96,7 @@ jobs:
 
       - name: Run tests
         working-directory: ${{ inputs.working_directory }}
-        run: uv run pytest
+        run: ${{ inputs.test_command }}
 
   tests-with-postgres:
     name: Python Tests (Postgres)
@@ -138,4 +143,4 @@ jobs:
 
       - name: Run tests
         working-directory: ${{ inputs.working_directory }}
-        run: uv run pytest
+        run: ${{ inputs.test_command }}

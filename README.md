@@ -96,6 +96,8 @@ Inputs:
   Postgres password for the service.
 - `postgres_port`
   Host port to expose Postgres on.
+- `test_command`
+  Command used to run tests. Defaults to `uv run pytest`.
 
 Important:
 - project-specific env stays in the caller repo
@@ -115,6 +117,7 @@ jobs:
       postgres_user: postgres
       postgres_password: postgres
       postgres_port: "5432"
+      test_command: uv run pytest
     secrets: inherit
 ```
 
