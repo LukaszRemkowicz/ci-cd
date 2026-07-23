@@ -2,11 +2,6 @@ name: Add Issues to Project
 
 on:
   workflow_call:
-    inputs:
-      project_url:
-        description: GitHub Project URL that receives new issues.
-        required: true
-        type: string
     secrets:
       project_token:
         description: Token with permission to add issues to the GitHub Project.
@@ -23,7 +18,7 @@ jobs:
       - name: Validate project automation config
         env:
           ADD_TO_PROJECT_PAT: ${{ secrets.project_token }}
-          ADD_TO_PROJECT_URL: ${{ inputs.project_url }}
+          ADD_TO_PROJECT_URL: ${{ vars.ADD_TO_PROJECT_URL }}
         run: |
           if [ -z "$ADD_TO_PROJECT_URL" ]; then
             echo "::error::Set repository variable ADD_TO_PROJECT_URL to the GitHub Project URL, for example https://github.com/users/LukaszRemkowicz/projects/1"
@@ -38,5 +33,5 @@ jobs:
       - name: Add issue to project
         uses: actions/add-to-project@v2
         with:
-          project-url: ${{ inputs.project_url }}
+          project-url: ${{ vars.ADD_TO_PROJECT_URL }}
           github-token: ${{ secrets.project_token }}
