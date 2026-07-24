@@ -1,0 +1,32 @@
+name: Python Safety
+
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        description: Project directory scanned by Safety.
+        required: false
+        default: .
+        type: string
+    secrets:
+      safety_api_key:
+        description: API key used to authenticate with Safety.
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  safety:
+    name: Safety Dependency Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Scan Python dependencies
+        uses: pyupio/safety-action@v1
+        with:
+          api-key: ${{ secrets.safety_api_key }}
+          args: --target ${{ inputs.working_directory }}
