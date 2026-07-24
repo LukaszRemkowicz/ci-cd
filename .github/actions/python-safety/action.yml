@@ -1,0 +1,20 @@
+name: Python Safety
+description: Scan Python project dependencies with Safety.
+
+inputs:
+  api-key:
+    description: Safety API key supplied by the calling repository.
+    required: true
+  working-directory:
+    description: Project directory scanned by Safety.
+    required: false
+    default: .
+
+runs:
+  using: composite
+  steps:
+    - name: Scan Python dependencies
+      uses: pyupio/safety-action@v1
+      with:
+        api-key: ${{ inputs.api-key }}
+        args: --target ${{ inputs.working-directory }}
