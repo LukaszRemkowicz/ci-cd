@@ -1,0 +1,115 @@
+name: Pyproject Version Check
+
+on:
+  workflow_call:
+    inputs:
+      pyproject_file:
+        description: Path to the pyproject.toml file.
+        required: false
+        default: pyproject.toml
+        type: string
+      base_branch:
+        description: Base branch that should require the version check.
+        required: false
+        default: main
+        type: string
+      head_branch:
+        description: Head branch that should require the version check.
+        required: false
+        default: dev
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  version-check:
+    name: Pyproject version bump check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Skip version check
+        if: github.base_ref != inputs.base_branch || github.head_ref != inputs.head_branch
+        run: echo "Version check does not apply to this branch pair."
+
+      - name: Checkout pull request
+        if: github.base_ref == inputs.base_branch && github.head_ref == inputs.head_branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate pyproject version bump
+        if: github.base_ref == inputs.base_branch && github.head_ref == inputs.head_branch
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PYPROJECT_FILE: ${{ inputs.pyproject_file }}
+        run: |
+          set -euo pipefail
+
+          read_version() {
+            local source="$1"
+            python3 -c '
+          import sys
+          import tomllib
+
+          source = sys.argv[1]
+          try:
+              document = tomllib.load(sys.stdin.buffer)
+          except tomllib.TOMLDecodeError as exc:
+              raise SystemExit(f"ERROR: Cannot parse {source}: {exc}") from exc
+
+          project = document.get("project")
+          if not isinstance(project, dict):
+              raise SystemExit(f"ERROR: {source} has no [project] table.")
+
+          version = project.get("version")
+          if not isinstance(version, str) or not version.strip():
+              raise SystemExit(f"ERROR: {source} has no static [project].version string.")
+
+          print(version.strip())
+          ' "$source"
+          }
+
+          if ! git cat-file -e "${HEAD_SHA}:${PYPROJECT_FILE}" 2>/dev/null; then
+            echo "ERROR: ${PYPROJECT_FILE} is missing in the pull request branch."
+            exit 1
+          fi
+
+          NEW="$(git show "${HEAD_SHA}:${PYPROJECT_FILE}" | read_version "pull request ${PYPROJECT_FILE}")"
+          if ! [[ "$NEW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: [project].version must be MAJOR.MINOR.PATCH. Got: '$NEW'"
+            exit 1
+          fi
+
+          echo "Pull request version: $NEW"
+          echo "Release tag would be: v$NEW"
+
+          if ! git cat-file -e "${BASE_SHA}:${PYPROJECT_FILE}" 2>/dev/null; then
+            echo "Pyproject version introduced in this pull request: $NEW"
+            exit 0
+          fi
+
+          OLD="$(git show "${BASE_SHA}:${PYPROJECT_FILE}" | read_version "base ${PYPROJECT_FILE}")"
+          if ! [[ "$OLD" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: Base [project].version must be MAJOR.MINOR.PATCH. Got: '$OLD'"
+            exit 1
+          fi
+
+          if [[ "$OLD" == "$NEW" ]]; then
+            echo "ERROR: [project].version was not changed in this pull request."
+            exit 1
+          fi
+
+          IFS='.' read -r old_major old_minor old_patch <<< "$OLD"
+          IFS='.' read -r new_major new_minor new_patch <<< "$NEW"
+
+          if (( 10#$new_major < 10#$old_major )) || \
+             (( 10#$new_major == 10#$old_major && 10#$new_minor < 10#$old_minor )) || \
+             (( 10#$new_major == 10#$old_major && 10#$new_minor == 10#$old_minor && 10#$new_patch <= 10#$old_patch )); then
+            echo "ERROR: [project].version must increase. Base=$OLD PR=$NEW"
+            exit 1
+          fi
+
+          echo "Valid [project].version bump: $OLD -> $NEW"

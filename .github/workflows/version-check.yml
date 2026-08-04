@@ -25,16 +25,21 @@ permissions:
 jobs:
   version-check:
     name: Version bump check
-    if: github.base_ref == inputs.base_branch && github.head_ref == inputs.head_branch
     runs-on: ubuntu-latest
 
     steps:
+      - name: Skip version check
+        if: github.base_ref != inputs.base_branch || github.head_ref != inputs.head_branch
+        run: echo "Version check does not apply to this branch pair."
+
       - name: Checkout PR HEAD
+        if: github.base_ref == inputs.base_branch && github.head_ref == inputs.head_branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Log version file
+        if: github.base_ref == inputs.base_branch && github.head_ref == inputs.head_branch
         shell: bash
         run: |
           if [[ -f "${{ inputs.version_file }}" ]]; then
@@ -47,6 +52,7 @@ jobs:
           fi
 
       - name: Validate version file and bump
+        if: github.base_ref == inputs.base_branch && github.head_ref == inputs.head_branch
         shell: bash
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

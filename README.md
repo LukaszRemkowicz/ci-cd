@@ -20,6 +20,10 @@ Shared reusable GitHub Actions workflows for application repositories.
   Reusable `VERSION` bump validation for pull requests.
 - `.github/workflows/release-tag.yml`
   Reusable tag creation workflow based on the repository `VERSION` file.
+- `.github/workflows/pyproject-version-check.yml`
+  Experimental `[project].version` bump validation for pull requests.
+- `.github/workflows/pyproject-release-tag.yml`
+  Experimental tag creation workflow based on `[project].version`.
 - `.github/workflows/branch-protection.yml`
   Reusable branch protection rules for pull requests.
 - `.github/workflows/pr-status.yml`
@@ -241,6 +245,33 @@ land on `main`.
 Inputs:
 - `version_file`
   Version file path.
+- `tag_prefix`
+  Tag prefix, usually `v`.
+
+### `pyproject-version-check.yml`
+
+Use for validating a static `[project].version` in `pyproject.toml` on release
+pull requests. Existing `VERSION`-based workflows remain unchanged.
+
+Inputs:
+- `pyproject_file`
+  Path to `pyproject.toml`. Defaults to the repository root.
+- `base_branch`
+  Base branch that should trigger the check.
+- `head_branch`
+  Head branch that should trigger the check.
+
+The version must be a static `MAJOR.MINOR.PATCH` string. Dynamic versions are
+not supported.
+
+### `pyproject-release-tag.yml`
+
+Use for creating release tags from a static `[project].version` after changes
+land on `main`. Existing `VERSION`-based workflows remain unchanged.
+
+Inputs:
+- `pyproject_file`
+  Path to `pyproject.toml`. Defaults to the repository root.
 - `tag_prefix`
   Tag prefix, usually `v`.
 

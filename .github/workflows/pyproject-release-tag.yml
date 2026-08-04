@@ -1,0 +1,155 @@
+name: Pyproject Release Tag
+
+on:
+  workflow_call:
+    inputs:
+      pyproject_file:
+        description: Path to the pyproject.toml file.
+        required: false
+        default: pyproject.toml
+        type: string
+      tag_prefix:
+        description: Prefix used for release tags.
+        required: false
+        default: v
+        type: string
+    outputs:
+      release_tag:
+        description: Resolved release tag.
+        value: ${{ jobs.tag-main.outputs.release_tag }}
+      tag_created:
+        description: Whether a new tag was created.
+        value: ${{ jobs.tag-main.outputs.tag_created }}
+      version_changed:
+        description: Whether [project].version differs from the latest release tag.
+        value: ${{ jobs.tag-main.outputs.version_changed }}
+
+permissions:
+  contents: write
+
+jobs:
+  tag-main:
+    name: Tag main from pyproject.toml
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release_tag.outputs.value }}
+      tag_created: ${{ steps.release_tag.outputs.created }}
+      version_changed: ${{ steps.release_tag.outputs.version_changed }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and push tag if missing
+        id: release_tag
+        shell: bash
+        env:
+          PYPROJECT_FILE: ${{ inputs.pyproject_file }}
+          TAG_PREFIX: ${{ inputs.tag_prefix }}
+        run: |
+          set -euo pipefail
+
+          read_version() {
+            local source="$1"
+            python3 -c '
+          import sys
+          import tomllib
+
+          source = sys.argv[1]
+          try:
+              document = tomllib.load(sys.stdin.buffer)
+          except tomllib.TOMLDecodeError as exc:
+              raise SystemExit(f"ERROR: Cannot parse {source}: {exc}") from exc
+
+          project = document.get("project")
+          if not isinstance(project, dict):
+              raise SystemExit(f"ERROR: {source} has no [project] table.")
+
+          version = project.get("version")
+          if not isinstance(version, str) or not version.strip():
+              raise SystemExit(f"ERROR: {source} has no static [project].version string.")
+
+          print(version.strip())
+          ' "$source"
+          }
+
+          git fetch origin main --tags
+
+          if [[ ! -f "$PYPROJECT_FILE" ]]; then
+            echo "ERROR: Pyproject file missing on main: $PYPROJECT_FILE"
+            exit 1
+          fi
+
+          CURRENT_VERSION="$(read_version "current ${PYPROJECT_FILE}" < "$PYPROJECT_FILE")"
+          if ! [[ "$CURRENT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: [project].version must be MAJOR.MINOR.PATCH. Got: '$CURRENT_VERSION'"
+            exit 1
+          fi
+
+          TARGET_TAG="${TAG_PREFIX}${CURRENT_VERSION}"
+          LATEST_TAG="$(git tag -l "${TAG_PREFIX}*" --sort=-v:refname | head -n 1)"
+
+          if [[ -n "$LATEST_TAG" ]] && git cat-file -e "${LATEST_TAG}:${PYPROJECT_FILE}" 2>/dev/null; then
+            PREVIOUS_VERSION="$(git show "${LATEST_TAG}:${PYPROJECT_FILE}" | read_version "${LATEST_TAG} ${PYPROJECT_FILE}")"
+          else
+            PREVIOUS_VERSION=""
+          fi
+
+          if [[ -n "$PREVIOUS_VERSION" ]] && \
+             ! [[ "$PREVIOUS_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: Tagged [project].version must be MAJOR.MINOR.PATCH. Got: '$PREVIOUS_VERSION'"
+            exit 1
+          fi
+
+          if [[ "$PREVIOUS_VERSION" == "$CURRENT_VERSION" ]]; then
+            echo "[project].version is unchanged since the latest release tag."
+            {
+              echo "value=${TARGET_TAG}"
+              echo "created=false"
+              echo "version_changed=false"
+            } >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          if [[ -n "$PREVIOUS_VERSION" ]]; then
+            IFS='.' read -r previous_major previous_minor previous_patch <<< "$PREVIOUS_VERSION"
+            IFS='.' read -r current_major current_minor current_patch <<< "$CURRENT_VERSION"
+
+            if (( 10#$current_major < 10#$previous_major )) || \
+               (( 10#$current_major == 10#$previous_major && 10#$current_minor < 10#$previous_minor )) || \
+               (( 10#$current_major == 10#$previous_major && 10#$current_minor == 10#$previous_minor && 10#$current_patch <= 10#$previous_patch )); then
+              echo "ERROR: [project].version must increase. Previous=$PREVIOUS_VERSION Current=$CURRENT_VERSION"
+              exit 1
+            fi
+          fi
+
+          if git rev-parse --verify "refs/tags/${TARGET_TAG}" >/dev/null 2>&1; then
+            TAG_COMMIT="$(git rev-parse "refs/tags/${TARGET_TAG}^{commit}")"
+            HEAD_COMMIT="$(git rev-parse 'HEAD^{commit}')"
+            if [[ "$TAG_COMMIT" != "$HEAD_COMMIT" ]]; then
+              echo "ERROR: Tag $TARGET_TAG already exists for a different commit."
+              exit 1
+            fi
+
+            echo "Tag already exists: $TARGET_TAG"
+            {
+              echo "value=${TARGET_TAG}"
+              echo "created=false"
+              echo "version_changed=true"
+            } >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git tag -a "$TARGET_TAG" -m "Release $TARGET_TAG"
+          git push origin "$TARGET_TAG"
+
+          {
+            echo "value=${TARGET_TAG}"
+            echo "created=true"
+            echo "version_changed=true"
+          } >> "${GITHUB_OUTPUT}"
