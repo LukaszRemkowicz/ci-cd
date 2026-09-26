@@ -211,7 +211,10 @@ jobs:
 
 ### `trivy-scan.yml`
 
-Use for reusable Trivy filesystem scanning with SARIF upload.
+Use for reusable Trivy filesystem scanning. By default, the workflow uploads
+SARIF results to GitHub Code Scanning. Repositories without GitHub Code
+Security can disable the upload and make Trivy fail the job when matching
+findings are detected.
 
 Inputs:
 - `scan_path`
@@ -222,8 +225,25 @@ Inputs:
   SARIF output file name.
 - `category`
   SARIF category label.
+- `upload_sarif`
+  Whether to upload SARIF results to GitHub Code Scanning. Defaults to `true`.
+  Set to `false` for private repositories without GitHub Code Security; Trivy
+  then prints a table and exits with code 1 for matching findings.
 - `trivy_image`
   Trivy container image to use.
+
+Example for a private repository without GitHub Code Security:
+
+```yaml
+jobs:
+  trivy-scan:
+    permissions:
+      actions: read
+      contents: read
+    uses: LukaszRemkowicz/ci-cd/.github/workflows/trivy-scan.yml@main
+    with:
+      upload_sarif: false
+```
 
 ### `version-check.yml`
 

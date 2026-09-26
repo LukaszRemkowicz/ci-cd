@@ -19,10 +19,15 @@ on:
         default: trivy-results.sarif
         type: string
       category:
-        description: SARIF category.
+        description: SARIF category used when upload_sarif is enabled.
         required: false
         default: trivy
         type: string
+      upload_sarif:
+        description: Upload results to GitHub Code Scanning instead of failing on findings.
+        required: false
+        default: true
+        type: boolean
       trivy_image:
         description: Trivy container image.
         required: false
@@ -43,7 +48,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run Trivy vulnerability scanner
+      - name: Run Trivy vulnerability scanner for GitHub Code Scanning
+        if: ${{ inputs.upload_sarif }}
         run: |
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
@@ -55,9 +61,21 @@ jobs:
               --severity ${{ inputs.severity }} \
               ${{ inputs.scan_path }}
 
+      - name: Run blocking Trivy vulnerability scanner
+        if: ${{ !inputs.upload_sarif }}
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            ${{ inputs.trivy_image }} fs \
+              --format table \
+              --exit-code 1 \
+              --severity ${{ inputs.severity }} \
+              ${{ inputs.scan_path }}
+
       - name: Upload Trivy results
         uses: github/codeql-action/upload-sarif@v4
-        if: always()
+        if: ${{ always() && inputs.upload_sarif }}
         with:
           sarif_file: ${{ inputs.output_file }}
           category: ${{ inputs.category }}
