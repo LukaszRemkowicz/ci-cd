@@ -106,6 +106,8 @@ Inputs:
   Optional command run after dependencies are installed and before the
   tests, for example a script that installs system packages. Empty by
   default; the step is then skipped.
+  The value runs as shell code: pass a fixed command, never untrusted
+  values such as `github.event.*` fields.
 
 Important:
 - project-specific env stays in the caller repo
