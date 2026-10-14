@@ -102,6 +102,10 @@ Inputs:
   Host port to expose Postgres on.
 - `test_command`
   Command used to run tests. Defaults to `uv run pytest`.
+- `setup_command`
+  Optional command run after dependencies are installed and before the
+  tests, for example a script that installs system packages. Empty by
+  default; the step is then skipped.
 
 Important:
 - project-specific env stays in the caller repo
