@@ -23,6 +23,11 @@ on:
         required: false
         default: uv run pytest
         type: string
+      setup_command:
+        description: Optional command run after dependencies are installed and before the tests.
+        required: false
+        default: ""
+        type: string
       postgres_enabled:
         description: Whether to start a Postgres service container.
         required: false
@@ -94,6 +99,11 @@ jobs:
         run: |
           printf '%s\n' '${{ inputs.test_environment }}' >> "$GITHUB_ENV"
 
+      - name: Prepare environment
+        if: ${{ inputs.setup_command != '' }}
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.setup_command }}
+
       - name: Run tests
         working-directory: ${{ inputs.working_directory }}
         run: ${{ inputs.test_command }}
@@ -140,6 +150,11 @@ jobs:
         if: ${{ inputs.test_environment != '' }}
         run: |
           printf '%s\n' '${{ inputs.test_environment }}' >> "$GITHUB_ENV"
+
+      - name: Prepare environment
+        if: ${{ inputs.setup_command != '' }}
+        working-directory: ${{ inputs.working_directory }}
+        run: ${{ inputs.setup_command }}
 
       - name: Run tests
         working-directory: ${{ inputs.working_directory }}
