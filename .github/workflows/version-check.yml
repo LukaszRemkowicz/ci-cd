@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       version_file:
-        description: Path to the version file.
+        description: Path to package.json or a plain-text version file.
         required: false
         default: VERSION
         type: string
@@ -38,19 +38,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Log version file
-        if: github.base_ref == inputs.base_branch && github.head_ref == inputs.head_branch
-        shell: bash
-        run: |
-          if [[ -f "${{ inputs.version_file }}" ]]; then
-            VER=$(tr -d ' \t\r\n' < "${{ inputs.version_file }}")
-            echo "VERSION: $VER"
-            echo "Release tag would be: v$VER"
-          else
-            echo "Version file not found: ${{ inputs.version_file }}"
-            exit 1
-          fi
-
       - name: Validate version file and bump
         if: github.base_ref == inputs.base_branch && github.head_ref == inputs.head_branch
         shell: bash
@@ -61,12 +48,22 @@ jobs:
         run: |
           set -euo pipefail
 
+          read_version() {
+            local ref="$1"
+            if [[ "${VERSION_FILE##*/}" == package.json ]]; then
+              git show "$ref:$VERSION_FILE" | jq -er '.version | strings'
+            else
+              git show "$ref:$VERSION_FILE" | tr -d ' \t\r\n'
+            fi
+          }
+
           if ! git cat-file -e "${HEAD_SHA}:${VERSION_FILE}" 2>/dev/null; then
             echo "ERROR: ${VERSION_FILE} is missing in PR branch."
             exit 1
           fi
 
-          NEW="$(git show "${HEAD_SHA}:${VERSION_FILE}" | tr -d ' \t\r\n')"
+          NEW="$(read_version "$HEAD_SHA")"
+          echo "Release tag would be: v$NEW"
           if ! [[ "$NEW" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "ERROR: VERSION must be MAJOR.MINOR.PATCH. Got: '$NEW'"
             exit 1
@@ -77,7 +74,7 @@ jobs:
             exit 0
           fi
 
-          OLD="$(git show "${BASE_SHA}:${VERSION_FILE}" | tr -d ' \t\r\n')"
+          OLD="$(read_version "$BASE_SHA")"
           if ! [[ "$OLD" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "ERROR: Base VERSION is invalid. Got: '$OLD'"
             exit 1

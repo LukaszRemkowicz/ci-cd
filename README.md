@@ -253,7 +253,8 @@ jobs:
 
 ### `version-check.yml`
 
-Use for `VERSION` validation on pull requests.
+Use to require a version bump on pull requests. The check reads the `version`
+field from `package.json` or the full value from a plain-text `VERSION` file.
 
 Inputs:
 - `version_file`
