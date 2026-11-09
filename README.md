@@ -266,8 +266,8 @@ Inputs:
 
 ### `release-tag.yml`
 
-Use for creating release tags from the repository `VERSION` file after changes
-land on `main`.
+Use for creating release tags after changes land on `main`. The version is read
+from the `version` field of `package.json` or from a plain-text `VERSION` file.
 
 Inputs:
 - `version_file`
